@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-immortal-secondary/30;
+  }
+  
+  body {
+    @apply bg-immortal-bg text-immortal-text antialiased;
+    font-family: 'Noto Serif SC', 'STSong', serif;
+  }
+}
+
+@layer components {
+  .cultivation-button {
+    @apply relative w-40 h-40 rounded-full bg-gradient-to-br from-immortal-primary/80 to-amber-600/80 
+           flex items-center justify-center text-immortal-bg font-bold text-lg
+           shadow-lg shadow-immortal-primary/30 transition-all duration-300
+           hover:scale-105 hover:shadow-xl hover:shadow-immortal-primary/50
+           active:scale-95;
+  }
+  
+  .cultivation-button.cultivating {
+    @apply animate-breathe animate-glow;
+  }
+  
+  .realm-badge {
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full 
+           bg-immortal-primary/20 text-immortal-primary text-sm font-medium
+           border border-immortal-primary/30;
+  }
+  
+  .stat-card {
+    @apply bg-slate-800/50 rounded-xl p-4 border border-immortal-secondary/20
+           backdrop-blur-sm;
+  }
+  
+  .panel {
+    @apply bg-slate-900/50 rounded-2xl p-6 border border-immortal-secondary/20
+           backdrop-blur-md;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-immortal-primary to-amber-400;
+  }
+  
+  .glow-primary {
+    box-shadow: 0 0 30px rgba(251, 191, 36, 0.3);
+  }
+}

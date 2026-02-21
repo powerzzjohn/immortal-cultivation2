@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  daoName       String   @unique
+  createdAt     DateTime @default(now())
+  lastLoginAt   DateTime?
+  
+  bazi          Bazi?
+  cultivation   Cultivation?
+  resources     Resources?
+  chatMessages  ChatMessage[]
+  dailySummaries DailySummary[]
+}
+
+model Bazi {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  
+  birthYear       Int
+  birthMonth      Int
+  birthDay        Int
+  birthHour       Int
+  birthMinute     Int
+  timezone        String   @default("Asia/Shanghai")
+  
+  yearStem        String
+  yearBranch      String
+  yearElement     String
+  monthStem       String
+  monthBranch     String
+  monthElement    String
+  dayStem         String
+  dayBranch       String
+  dayElement      String
+  hourStem        String
+  hourBranch      String
+  hourElement     String
+  
+  metalCount      Int      @default(0)
+  woodCount       Int      @default(0)
+  waterCount      Int      @default(0)
+  fireCount       Int      @default(0)
+  earthCount      Int      @default(0)
+  
+  rootType        String
+  rootName        String
+  primaryElement  String
+  secondaryElement String?
+  variantType     String?
+  rootBonus       Float
+  rootDescription String
+  
+  calculatedAt    DateTime @default(now())
+}
+
+model Cultivation {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id])
+  
+  currentExp        Int      @default(0)
+  totalExp          Int      @default(0)
+  realm             Int      @default(1)
+  realmName         String   @default("炼气")
+  totalDays         Int      @default(0)
+  todayMinutes      Int      @default(0)
+  isCultivating     Boolean  @default(false)
+  cultivateStartAt  DateTime?
+  lastCultivateAt   DateTime?
+  updatedAt         DateTime @updatedAt
+}
+
+model Resources {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id])
+  spiritStones  Int      @default(0)
+  updatedAt     DateTime @updatedAt
+}
+
+model ChatMessage {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  role        String
+  content     String
+  metadata    String?
+  createdAt   DateTime @default(now())
+}
+
+model DailySummary {
+  id                 String   @id @default(uuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id])
+  date               DateTime
+  todayMinutes       Int
+  expGained          Int
+  bonusApplied       Float
+
+  greeting           String
+  cultivationReview  String
+  insight            String
+  wisdom             String
+  suggestion         String
+  goldenQuote        String
+
+  generatedAt        DateTime @default(now())
+
+  @@unique([userId, date])
+}
+
+// 每日箴言记录
+model DailyWisdom {
+  id          String   @id @default(uuid())
+  userId      String
+  date        DateTime
+  quoteId     String
+  viewCount   Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, date])
+}
+
+// 用户箴言感悟
+model WisdomInsight {
+  id          String   @id @default(uuid())
+  userId      String
+  quoteId     String
+  insight     String
+  createdAt   DateTime @default(now())
+}
+
+// 修炼日志
+model CultivationLog {
+  id          String   @id @default(uuid())
+  userId      String
+  minutes     Int
+  expGained   Int
+  bonus       Float    @default(1.0)
+  createdAt   DateTime @default(now())
+}
+
+// 资源变动日志
+model ResourceLog {
+  id            String   @id @default(uuid())
+  userId        String
+  resourceType  String   // spiritStones, pills, etc.
+  amount        Int
+  type          String   // reward, consume, trade
+  description   String?
+  createdAt     DateTime @default(now())
+}

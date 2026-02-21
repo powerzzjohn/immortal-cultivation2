@@ -1,0 +1,12 @@
+[phases.build]
+cmds = [
+  "npm install",
+  "npx prisma generate",
+  "npm run build"
+]
+
+[phases.setup]
+nixPkgs = ['nodejs_18']
+
+[start]
+cmd = 'node dist/app.js'
