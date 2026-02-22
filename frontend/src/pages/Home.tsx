@@ -7,7 +7,7 @@ export const Home: FC = () => {
   const [cultivateTime, setCultivateTime] = useState(0);
   const [celestialData, setCelestialData] = useState<any>(null);
   const [cultivationData, setCultivationData] = useState<any>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { auth, bazi } = useAppStore();
   
   // 获取修炼状态
