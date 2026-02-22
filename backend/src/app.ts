@@ -45,7 +45,13 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(500).json({ error: '服务器内部错误' });
 });
 
-app.listen(PORT, () => {
-  console.log(`🦐 凡人修仙服务器启动在端口 ${PORT}`);
-  console.log(`API地址: http://localhost:${PORT}/api`);
-});
+// 本地开发时启动服务器
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🦐 凡人修仙服务器启动在端口 ${PORT}`);
+    console.log(`API地址: http://localhost:${PORT}/api`);
+  });
+}
+
+// 导出供 Vercel 使用
+export default app;
