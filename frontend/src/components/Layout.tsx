@@ -1,7 +1,7 @@
 import { FC } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../stores/useAppStore';
-import { User, LogOut, CalendarDays } from 'lucide-react';
+import { User, LogOut, CalendarDays, Sparkles } from 'lucide-react';
 
 export const Layout: FC = () => {
   const { auth, logout } = useAppStore();
@@ -27,9 +27,22 @@ export const Layout: FC = () => {
           </Link>
           
           <div className="flex items-center gap-2">
-            {/* 导航链接 */}
+            {/* 八字测算链接 */}
             <Link 
-              to="/daily-summary" 
+              to="/bazi-setup" 
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-colors text-sm
+                ${isActive('/bazi-setup') 
+                  ? 'bg-immortal-primary/20 text-immortal-primary' 
+                  : 'hover:bg-immortal-secondary/20 text-immortal-secondary'
+                }`}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">八字测算</span>
+            </Link>
+            
+            {/* 每日总结链接 */}
+            <Link 
+              to="/daily-summary"
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-colors text-sm
                 ${isActive('/daily-summary') 
                   ? 'bg-immortal-primary/20 text-immortal-primary' 
