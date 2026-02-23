@@ -7,7 +7,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://immortal-cultivation2-backend.vercel.app/api/$1"
+      "destination": "https://backend-five-bay-94.vercel.app/api/$1"
     },
     {
       "source": "/(.*)",
