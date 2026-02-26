@@ -83,6 +83,13 @@ export const Home: FC = () => {
     const minutes = Math.floor(cultivateTime / 60);
     const expGained = Math.floor(minutes * (celestialData?.bonus?.total || 1));
     
+    // 立即停止计时器，避免重复点击
+    setCultivating(false);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
     try {
       const response = await fetch('/api/cultivation/stop', {
         method: 'POST',
@@ -95,9 +102,8 @@ export const Home: FC = () => {
       
       if (response.ok) {
         const data = await response.json();
-        setCultivating(false);
         setCultivateTime(0);
-        fetchCultivationStatus();
+        await fetchCultivationStatus();
         
         let message = `修炼结束！获得 ${data.expGained} 点经验`;
         if (data.spiritStonesReward > 0) {
@@ -107,9 +113,18 @@ export const Home: FC = () => {
           message += `\n恭喜突破到${data.newRealm}！`;
         }
         alert(message);
+      } else {
+        // API失败，恢复状态
+        const errorData = await response.json().catch(() => ({}));
+        alert(`停止修炼失败: ${errorData.error || '未知错误'}`);
+        // 重新获取状态
+        fetchCultivationStatus();
       }
     } catch (error) {
-      alert('停止修炼失败');
+      console.error('停止修炼错误:', error);
+      alert('停止修炼失败，请检查网络连接');
+      // 重新获取状态
+      fetchCultivationStatus();
     }
   };
   

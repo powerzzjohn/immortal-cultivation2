@@ -5,8 +5,19 @@ import type {
 
 const API_URL = '/api';
 
-// 获取token
-const getToken = () => localStorage.getItem('token');
+// 获取token - 从zustand persist存储中读取
+const getToken = () => {
+  try {
+    const storage = localStorage.getItem('immortal-cultivation-storage');
+    if (storage) {
+      const data = JSON.parse(storage);
+      return data?.auth?.token || null;
+    }
+  } catch (e) {
+    console.error('读取token失败:', e);
+  }
+  return null;
+};
 
 // 创建axios实例
 const api = axios.create({
