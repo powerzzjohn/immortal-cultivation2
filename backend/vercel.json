@@ -14,5 +14,8 @@
       "src": "/(.*)",
       "dest": "/api/index"
     }
-  ]
+  ],
+  "env": {
+    "DATABASE_URL": "file:./prisma/dev.db"
+  }
 }
