@@ -316,6 +316,56 @@ app.post('/api/bazi/save', authMiddleware, async (req: any, res: any) => {
   }
 });
 
+// 获取我的八字（需要登录）
+app.get('/api/bazi/my', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.userId as string;
+    if (!userId) return res.status(401).json({ error: '未认证' });
+    
+    const bazi = await prisma.bazi.findUnique({ where: { userId } });
+    if (!bazi) return res.status(404).json({ error: '未找到八字信息' });
+    
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    
+    res.json({
+      success: true,
+      data: {
+        user: { id: user?.id, email: user?.email, daoName: user?.daoName },
+        birthInfo: {
+          year: bazi.birthYear,
+          month: bazi.birthMonth,
+          day: bazi.birthDay,
+          hour: bazi.birthHour,
+          minute: bazi.birthMinute
+        },
+        bazi: {
+          year: { stem: bazi.yearStem, branch: bazi.yearBranch, element: bazi.yearElement },
+          month: { stem: bazi.monthStem, branch: bazi.monthBranch, element: bazi.monthElement },
+          day: { stem: bazi.dayStem, branch: bazi.dayBranch, element: bazi.dayElement },
+          hour: { stem: bazi.hourStem, branch: bazi.hourBranch, element: bazi.hourElement }
+        },
+        wuxing: {
+          metal: bazi.metalCount,
+          wood: bazi.woodCount,
+          water: bazi.waterCount,
+          fire: bazi.fireCount,
+          earth: bazi.earthCount
+        },
+        lingGen: {
+          type: bazi.rootType,
+          name: bazi.rootName,
+          primaryElement: bazi.primaryElement,
+          secondaryElement: bazi.secondaryElement,
+          bonus: bazi.rootBonus,
+          description: bazi.rootDescription
+        }
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: '获取失败', details: error.message });
+  }
+});
+
 // 获取修炼状态
 app.get('/api/cultivation/status', authMiddleware, async (req: any, res: any) => {
   try {
