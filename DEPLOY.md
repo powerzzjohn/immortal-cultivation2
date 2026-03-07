@@ -1,11 +1,25 @@
 # 凡人修仙 Web 应用 - Vercel + Supabase 部署指南
 
-## 架构
-- **后端**: Vercel (Serverless Functions)
-- **数据库**: Supabase (PostgreSQL)
-- **前端**: Vercel (静态网站)
+## 🏗️ 架构概览
+```
+┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
+│     前端        │ ───▶ │      后端         │ ───▶ │     数据库       │
+│  (Vercel)       │      │   (Vercel)       │      │  (Supabase)     │
+│  React + Vite   │      │  Express + TS    │      │  PostgreSQL     │
+└─────────────────┘      └──────────────────┘      └─────────────────┘
+                              │
+                              ▼
+                         ┌──────────────────┐
+                         │   AI 服务 (Kimi)  │
+                         └──────────────────┘
+```
 
-两个都部署在 Vercel，但数据库用 Supabase 的免费 PostgreSQL。
+### 技术栈
+- **前端**: Vercel 静态托管 (Vite + React 18 + TypeScript + TailwindCSS)
+- **后端**: Vercel Serverless Functions (Express + TypeScript)
+- **数据库**: Supabase PostgreSQL (Connection Pooler 6543端口)
+- **ORM**: Prisma
+- **AI**: Moonshot Kimi k2.5
 
 ---
 

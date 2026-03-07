@@ -1,7 +1,6 @@
 // 凡人修仙 - Vercel Serverless 完整后端
 import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -13,7 +12,6 @@ const app = express();
 const prisma = new PrismaClient();
 
 // 中间件
-app.use(helmet());
 app.use(cors({
   origin: '*',
   credentials: true,

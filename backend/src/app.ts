@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
 import dotenv from 'dotenv';
 
 // 路由导入
@@ -18,7 +17,6 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // 中间件
-app.use(helmet());
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
