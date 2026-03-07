@@ -424,6 +424,313 @@ app.post('/api/cultivation/stop', authMiddleware, async (req: any, res: any) => 
   }
 });
 
+// ========== 天时系统API ==========
+
+// 获取当前天时数据
+app.get('/api/celestial/now', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.userId as string;
+    if (!userId) return res.status(401).json({ error: '未认证' });
+    
+    // 获取用户灵根属性
+    const bazi = await prisma.bazi.findUnique({
+      where: { userId },
+      select: { primaryElement: true },
+    });
+    
+    if (!bazi) {
+      return res.status(400).json({ error: '请先设置八字' });
+    }
+    
+    // 获取当前时间
+    const now = new Date();
+    const hour = now.getHours();
+    
+    // 模拟天气数据（实际应调用天气API）
+    const weather = {
+      temperature: 22,
+      weather: '晴',
+      humidity: 60,
+      windDirection: '东北',
+      windScale: '2',
+      pressure: 1013,
+      visibility: 10,
+    };
+    
+    // 计算五运六气（简化版）
+    const year = now.getFullYear();
+    const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+    const branches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+    const yearStem = stems[(year - 4) % 10];
+    const yearBranch = branches[(year - 4) % 12];
+    
+    const wuYunLiuQi = {
+      yearLuck: { element: '木', type: '太角' },
+      mainQi: { name: '厥阴风木', element: '木' },
+      guestQi: { siTian: '厥阴风木', zaiQuan: '少阳相火' },
+      currentSolarTerm: '立春',
+    };
+    
+    // 子午流注
+    const timeRanges = [
+      { hour: 23, endHour: 1, branch: '子', meridian: '胆经', element: '木', yinYang: '阳' },
+      { hour: 1, endHour: 3, branch: '丑', meridian: '肝经', element: '木', yinYang: '阴' },
+      { hour: 3, endHour: 5, branch: '寅', meridian: '肺经', element: '金', yinYang: '阴' },
+      { hour: 5, endHour: 7, branch: '卯', meridian: '大肠经', element: '金', yinYang: '阳' },
+      { hour: 7, endHour: 9, branch: '辰', meridian: '胃经', element: '土', yinYang: '阳' },
+      { hour: 9, endHour: 11, branch: '巳', meridian: '脾经', element: '土', yinYang: '阴' },
+      { hour: 11, endHour: 13, branch: '午', meridian: '心经', element: '火', yinYang: '阴' },
+      { hour: 13, endHour: 15, branch: '未', meridian: '小肠经', element: '火', yinYang: '阳' },
+      { hour: 15, endHour: 17, branch: '申', meridian: '膀胱经', element: '水', yinYang: '阳' },
+      { hour: 17, endHour: 19, branch: '酉', meridian: '肾经', element: '水', yinYang: '阴' },
+      { hour: 19, endHour: 21, branch: '戌', meridian: '心包经', element: '火', yinYang: '阴' },
+      { hour: 21, endHour: 23, branch: '亥', meridian: '三焦经', element: '火', yinYang: '阳' },
+    ];
+    
+    const ziWuLiuZhu = timeRanges.find(t => 
+      (t.start <= t.end && hour >= t.start && hour < t.end) ||
+      (t.start > t.end && (hour >= t.start || hour < t.end))
+    ) || timeRanges[0];
+    
+    // 月相（简化计算）
+    const knownNewMoon = new Date(2000, 0, 6);
+    const diffDays = (now.getTime() - knownNewMoon.getTime()) / (1000 * 60 * 60 * 24);
+    const synodicMonth = 29.53058867;
+    const phase = ((diffDays % synodicMonth) / synodicMonth);
+    const normalizedPhase = phase < 0 ? phase + 1 : phase;
+    
+    const moonPhase = {
+      name: normalizedPhase < 0.5 ? '盈凸月' : '亏凸月',
+      phase: normalizedPhase,
+      bonus: 1.10,
+      desc: '月华充盈，能量上升',
+    };
+    
+    // 计算修炼加成
+    const weatherBonus = weather.weather === '晴' ? 1.10 : 1.00;
+    const tempBonus = weather.temperature >= 15 && weather.temperature <= 25 ? 1.05 : 0.98;
+    const qiBonus = 1.00;
+    const meridianBonus = 1.00;
+    const hourBonus = hour === 23 || hour === 0 || hour >= 21 ? 1.10 : 
+                      hour >= 3 && hour <= 6 ? 1.08 : 
+                      hour >= 11 && hour <= 12 ? 0.95 : 1.00;
+    const moonBonus = moonPhase.bonus;
+    
+    const totalBonus = 
+      weatherBonus * 0.15 +
+      tempBonus * 0.10 +
+      qiBonus * 0.25 +
+      meridianBonus * 0.20 +
+      hourBonus * 0.10 +
+      moonBonus * 0.20;
+    
+    res.json({
+      weather,
+      wuYunLiuQi,
+      ziWuLiuZhu,
+      moonPhase,
+      bonus: {
+        total: parseFloat(totalBonus.toFixed(2)),
+        details: {
+          weather: { factor: '天气', value: weatherBonus, desc: weather.weather },
+          temperature: { factor: '温度', value: tempBonus, desc: `${weather.temperature}°C` },
+          wuYun: { factor: '五运六气', value: qiBonus, desc: wuYunLiuQi.mainQi.name },
+          ziWu: { factor: '子午流注', value: meridianBonus, desc: `${ziWuLiuZhu.branch}时 ${ziWuLiuZhu.meridian}` },
+          hour: { factor: '时辰', value: hourBonus, desc: `${ziWuLiuZhu.branch}时` },
+          moon: { factor: '月相', value: moonBonus, desc: moonPhase.name },
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error('获取天时数据失败:', error);
+    res.status(500).json({ error: '获取失败', details: error.message });
+  }
+});
+
+// 获取月相
+app.get('/api/celestial/moon', authMiddleware, async (req: any, res: any) => {
+  try {
+    const now = new Date();
+    const knownNewMoon = new Date(2000, 0, 6);
+    const diffDays = (now.getTime() - knownNewMoon.getTime()) / (1000 * 60 * 60 * 24);
+    const synodicMonth = 29.53058867;
+    const phase = ((diffDays % synodicMonth) / synodicMonth);
+    const normalizedPhase = phase < 0 ? phase + 1 : phase;
+    
+    res.json({
+      name: normalizedPhase < 0.5 ? '盈凸月' : '亏凸月',
+      phase: normalizedPhase,
+      bonus: 1.10,
+      desc: '月华充盈，能量上升',
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: '获取月相失败', details: error.message });
+  }
+});
+
+// ========== AI对话API ==========
+
+// 发送消息给NPC
+app.post('/api/chat/send', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.userId as string;
+    if (!userId) return res.status(401).json({ error: '未认证' });
+    
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: '消息不能为空' });
+    
+    // 保存用户消息
+    await prisma.chatMessage.create({
+      data: { userId, role: 'user', content: message },
+    });
+    
+    // 获取用户上下文
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const cultivation = await prisma.cultivation.findUnique({ where: { userId } });
+    
+    // 调用Kimi API获取NPC回复
+    const npcResponse = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.MOONSHOT_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'kimi-k2-0711-preview',
+        messages: [
+          {
+            role: 'system',
+            content: `你是南宫婉，一位化神期的修仙前辈。你正在指导一位刚入门的道友（${cultivation?.realmName || '炼气'}期）修炼。
+
+当前用户信息：
+- 道号: ${user?.daoName || '道友'}
+- 境界: ${cultivation?.realmName || '炼气'}
+- 修炼天数: ${cultivation?.totalDays || 0}天
+- 今日修炼: ${cultivation?.todayMinutes || 0}分钟
+
+你的性格特点：
+- 温柔智慧，有耐心
+- 熟悉道德经、庄子等道家经典
+- 说话带有修仙氛围（使用"道友"、"修炼"、"境界"等词）
+- 会根据用户修炼情况给予鼓励或建议
+
+回复要求：
+1. 保持人设，用第一人称"我"
+2. 适当引用经典（道德经、庄子等）
+3. 根据用户修炼情况给予鼓励或建议
+4. 回复简短精炼（50-100字）`,
+          },
+          { role: 'user', content: message },
+        ],
+        temperature: 0.7,
+        max_tokens: 200,
+      }),
+    });
+    
+    const aiData = await npcResponse.json();
+    const npcReply = aiData.choices?.[0]?.message?.content || '道友，今日修仙可好？';
+    
+    // 保存NPC回复
+    await prisma.chatMessage.create({
+      data: { userId, role: 'npc', content: npcReply },
+    });
+    
+    res.json({ success: true, reply: npcReply });
+  } catch (error: any) {
+    console.error('AI对话失败:', error);
+    res.status(500).json({ error: '对话失败', details: error.message });
+  }
+});
+
+// 获取聊天历史
+app.get('/api/chat/history', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.userId as string;
+    if (!userId) return res.status(401).json({ error: '未认证' });
+    
+    const messages = await prisma.chatMessage.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+      take: 50,
+    });
+    
+    res.json({ success: true, messages });
+  } catch (error: any) {
+    res.status(500).json({ error: '获取历史失败', details: error.message });
+  }
+});
+
+// ========== 每日总结API ==========
+
+// 获取今日总结
+app.get('/api/wisdom/today', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.userId as string;
+    if (!userId) return res.status(401).json({ error: '未认证' });
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // 查找今日是否已有总结
+    const existingSummary = await prisma.dailySummary.findFirst({
+      where: { userId, date: { gte: today } },
+    });
+    
+    if (existingSummary) {
+      return res.json({ success: true, summary: existingSummary });
+    }
+    
+    // 获取用户数据
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const cultivation = await prisma.cultivation.findUnique({ where: { userId } });
+    const bazi = await prisma.bazi.findUnique({ where: { userId } });
+    
+    // 生成总结内容（简化版，实际应调用AI）
+    const summary = {
+      greeting: `道友${user?.daoName}，今日辛苦了。`,
+      cultivationReview: `今日修炼${cultivation?.todayMinutes || 0}分钟，在你的丹田之中，一个低熵有序的能量场正在形成。`,
+      insight: '今日修炼状态平稳，意念专注度良好。继续坚持，筑基可期。',
+      wisdom: '《金丹工程》云：局域负熵，乃生命之本。修炼即是抵抗熵增的过程。',
+      suggestion: '明日建议：保持当前修炼节奏，注意呼吸与意念的配合。',
+      goldenQuote: '合抱之木，生于毫末；九层之台，起于累土。',
+    };
+    
+    // 保存总结
+    const savedSummary = await prisma.dailySummary.create({
+      data: {
+        userId,
+        date: new Date(),
+        todayMinutes: cultivation?.todayMinutes || 0,
+        expGained: 0,
+        bonusApplied: 1.0,
+        ...summary,
+      },
+    });
+    
+    res.json({ success: true, summary: savedSummary });
+  } catch (error: any) {
+    res.status(500).json({ error: '获取总结失败', details: error.message });
+  }
+});
+
+// 获取历史总结
+app.get('/api/wisdom/history', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.userId as string;
+    if (!userId) return res.status(401).json({ error: '未认证' });
+    
+    const summaries = await prisma.dailySummary.findMany({
+      where: { userId },
+      orderBy: { date: 'desc' },
+      take: 30,
+    });
+    
+    res.json({ success: true, summaries });
+  } catch (error: any) {
+    res.status(500).json({ error: '获取历史失败', details: error.message });
+  }
+});
+
 // 错误处理
 app.use((err: any, req: any, res: any, next: any) => {
   console.error('Error:', err);
