@@ -488,8 +488,8 @@ app.get('/api/celestial/now', authMiddleware, async (req: any, res: any) => {
     ];
     
     const ziWuLiuZhu = timeRanges.find(t => 
-      (t.start <= t.end && hour >= t.start && hour < t.end) ||
-      (t.start > t.end && (hour >= t.start || hour < t.end))
+      (t.hour <= t.endHour && hour >= t.hour && hour < t.endHour) ||
+      (t.hour > t.endHour && (hour >= t.hour || hour < t.endHour))
     ) || timeRanges[0];
     
     // 月相（简化计算）
@@ -627,7 +627,7 @@ app.post('/api/chat/send', authMiddleware, async (req: any, res: any) => {
       }),
     });
     
-    const aiData = await npcResponse.json();
+    const aiData: any = await npcResponse.json();
     const npcReply = aiData.choices?.[0]?.message?.content || '道友，今日修仙可好？';
     
     // 保存NPC回复
