@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   Clock,
   Sparkles,
-  Gem,
   TrendingUp,
   Calendar,
   RefreshCw,
