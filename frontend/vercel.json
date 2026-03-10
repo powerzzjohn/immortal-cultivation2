@@ -7,7 +7,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://backend-21p84ilv2-pojohns-projects.vercel.app/api/$1"
+      "destination": "https://backend-pojohns-projects.vercel.app/api/$1"
     },
     {
       "source": "/(.*)",
