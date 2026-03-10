@@ -10,6 +10,7 @@ import cultivationRoutes from './routes/cultivation.js';
 import celestialRoutes from './routes/celestial.js';
 import chatRoutes from './routes/chat.js';
 import wisdomRoutes from './routes/wisdom.js';
+import summaryRoutes from './routes/summary.js';
 
 dotenv.config();
 
@@ -31,6 +32,7 @@ app.use('/api/cultivation', cultivationRoutes);
 app.use('/api/celestial', celestialRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/wisdom', wisdomRoutes);
+app.use('/api/summary', summaryRoutes);
 
 // 健康检查
 app.get('/api/health', (req, res) => {

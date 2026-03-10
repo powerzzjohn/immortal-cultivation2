@@ -126,4 +126,35 @@ export const wisdomApi = {
     api.get('/wisdom/history', { params: { page, limit } }),
 };
 
+// ==================== AI每日总结相关 ====================
+export const summaryApi = {
+  /**
+   * 获取今日总结
+   * GET /api/summary/today
+   */
+  getTodaySummary: () =>
+    api.get('/summary/today'),
+  
+  /**
+   * 生成今日总结（AI生成）
+   * POST /api/summary/generate
+   */
+  generateSummary: (latitude?: number, longitude?: number) =>
+    api.post('/summary/generate', { latitude, longitude }),
+  
+  /**
+   * 获取历史总结
+   * GET /api/summary/history
+   */
+  getHistory: (limit?: number) =>
+    api.get('/summary/history', { params: { limit } }),
+  
+  /**
+   * 获取指定日期总结
+   * GET /api/summary/:date
+   */
+  getSummaryByDate: (date: string) =>
+    api.get(`/summary/${date}`),
+};
+
 export default api;

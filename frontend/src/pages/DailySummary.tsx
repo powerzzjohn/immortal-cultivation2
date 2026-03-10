@@ -1,6 +1,6 @@
 import { FC, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft,
   Clock,
@@ -10,47 +10,92 @@ import {
   Calendar,
   RefreshCw,
   Wind,
+  Quote,
+  Lightbulb,
+  Compass,
+  Share2,
+  CheckCircle2,
 } from 'lucide-react';
-import { useAppStore } from '../stores/useAppStore';
-import { wisdomApi } from '../api';
+import { summaryApi, wisdomApi } from '../api';
 import { DailyWisdom } from '../components/DailyWisdom';
-import { WisdomInsightComponent } from '../components/WisdomInsight';
-import type { WisdomDailySummary, Wisdom, WisdomInsight as WisdomInsightType } from '../types';
+import type { AIDailySummary, Wisdom } from '../types';
 
 /**
- * 每日总结页面
- * 展示当日修炼统计：
- * - 修炼时长、经验值获得
- * - 境界进度条
- * - 灵石收入
+ * AI每日总结页面
+ * 
+ * 功能：
+ * - 显示今日修炼数据
+ * - AI生成的个性化总结（问候、回顾、感悟、智慧、建议、金句）
  * - 今日箴言
- * - 修炼建议（根据五行属性）
+ * - 历史总结入口
+ * - 分享功能
  */
 export const DailySummary: FC = () => {
   const navigate = useNavigate();
-  const { auth: _auth } = useAppStore();
   
-  const [summary, setSummary] = useState<WisdomDailySummary | null>(null);
+  const [summary, setSummary] = useState<AIDailySummary | null>(null);
   const [wisdom, setWisdom] = useState<Wisdom | null>(null);
-  const [insights, setInsights] = useState<WisdomInsightType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showGoldenQuote, setShowGoldenQuote] = useState(false);
 
-  // 获取每日总结数据
-  const fetchDailySummary = async () => {
+  // 获取今日总结
+  const fetchTodaySummary = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const response = await wisdomApi.getDailySummary();
-      setSummary(response.data.summary);
-      setWisdom(response.data.wisdom);
+      const response = await summaryApi.getTodaySummary();
+      
+      if (response.data.summary) {
+        setSummary(response.data.summary);
+      } else {
+        setSummary(null);
+      }
     } catch (err: any) {
-      console.error('获取每日总结失败:', err);
-      setError(err.response?.data?.message || '获取每日总结失败');
+      console.error('获取今日总结失败:', err);
+      setError(err.response?.data?.message || '获取总结失败');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // 生成AI总结
+  const generateSummary = async () => {
+    try {
+      setIsGenerating(true);
+      setError(null);
+      
+      // 获取地理位置（如果用户允许）
+      let latitude = 39.9042;
+      let longitude = 116.4074;
+      
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        });
+        latitude = position.coords.latitude;
+        longitude = position.coords.longitude;
+      } catch (e) {
+        // 使用默认位置（北京）
+        console.log('无法获取位置，使用默认');
+      }
+      
+      const response = await summaryApi.generateSummary(latitude, longitude);
+      
+      if (response.data.summary) {
+        setSummary(response.data.summary);
+        // 显示金句动画
+        setShowGoldenQuote(true);
+        setTimeout(() => setShowGoldenQuote(false), 3000);
+      }
+    } catch (err: any) {
+      console.error('生成总结失败:', err);
+      setError(err.response?.data?.message || '生成失败，请稍后重试');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -64,56 +109,35 @@ export const DailySummary: FC = () => {
     }
   };
 
-  // 获取感悟列表
-  const fetchInsights = async () => {
-    if (!wisdom?.id) return;
-    
-    try {
-      const response = await wisdomApi.getInsights(wisdom.id);
-      setInsights(response.data.insights);
-    } catch (err: any) {
-      console.error('获取感悟列表失败:', err);
-    }
-  };
-
-  // 提交感悟
-  const handleSubmitInsight = async (content: string) => {
-    if (!wisdom?.id) throw new Error('暂无箴言');
-    
-    const response = await wisdomApi.createInsight({
-      wisdomId: wisdom.id,
-      content,
-    });
-    
-    // 添加到列表开头
-    setInsights(prev => [response.data.insight, ...prev]);
-  };
-
-  // 删除感悟
-  const handleDeleteInsight = async (insightId: string) => {
-    await wisdomApi.deleteInsight(insightId);
-    setInsights(prev => prev.filter(i => i.id !== insightId));
-  };
-
   // 刷新数据
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await Promise.all([fetchDailySummary(), fetchDailyWisdom()]);
+    await Promise.all([fetchTodaySummary(), fetchDailyWisdom()]);
     setIsRefreshing(false);
+  };
+
+  // 分享金句
+  const handleShare = () => {
+    if (summary?.goldenQuote) {
+      const text = `「${summary.goldenQuote}」—— 来自凡人修仙\n\n今日修炼${summary.todayMinutes}分钟，${summary.greeting}`;
+      
+      if (navigator.share) {
+        navigator.share({
+          title: '凡人修仙 - 今日金句',
+          text,
+        });
+      } else {
+        navigator.clipboard.writeText(text);
+        alert('金句已复制到剪贴板');
+      }
+    }
   };
 
   // 首次加载
   useEffect(() => {
-    fetchDailySummary();
+    fetchTodaySummary();
     fetchDailyWisdom();
   }, []);
-
-  // 当箴言加载后，获取相关感悟
-  useEffect(() => {
-    if (wisdom?.id) {
-      fetchInsights();
-    }
-  }, [wisdom?.id]);
 
   // 格式化时间
   const formatMinutes = (minutes: number) => {
@@ -132,6 +156,15 @@ export const DailySummary: FC = () => {
     day: 'numeric',
     weekday: 'long',
   });
+
+  // 获取问候时段
+  const getGreetingTime = () => {
+    const hour = new Date().getHours();
+    if (hour < 6) return '凌晨';
+    if (hour < 12) return '上午';
+    if (hour < 18) return '下午';
+    return '晚上';
+  };
 
   return (
     <div className="min-h-screen bg-immortal-bg">
@@ -179,43 +212,82 @@ export const DailySummary: FC = () => {
           <div className="bg-red-400/10 border border-red-400/30 rounded-xl p-4 text-center">
             <p className="text-red-400">{error}</p>
             <button
-              onClick={fetchDailySummary}
+              onClick={fetchTodaySummary}
               className="mt-2 text-sm text-immortal-primary hover:underline"
             >
               重试
             </button>
-          </div>
+          </div㸀29c
         )}
 
-        {/* 修炼统计卡片 */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="panel"
-        >
-          <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-immortal-primary" />
-            今日修炼
-          </h2>
-
-          {isLoading ? (
-            <div className="animate-pulse space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="h-24 bg-slate-700/50 rounded-xl" />
-                ))}
-              </div>
-              <div className="h-4 bg-slate-700/50 rounded w-full" />
+        {/* 未生成状态 */}
+        {!isLoading && !summary && !error && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="panel text-center py-12"
+          >
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-immortal-primary/10 flex items-center justify-center">
+              <Sparkles className="w-10 h-10 text-immortal-primary" />
             </div>
-          ) : summary ? (
-            <>
-              {/* 统计数据 */}
+            <h2 className="text-xl font-bold text-immortal-text mb-2">今日总结尚未生成</h2>
+            <p className="text-immortal-secondary mb-6 max-w-sm mx-auto">
+              完成今日修炼后，AI将为你生成个性化的修炼总结
+            </p>
+            <button
+              onClick={generateSummary}
+              disabled={isGenerating}
+              className="btn-primary px-8 py-3"
+            >
+              {isGenerating ? (
+                <>
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <span>AI生成中...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5" />
+                  <span>生成今日总结</span>
+                </>
+              )}
+            </button>
+          </motion.div>
+        )}
+
+        {/* AI总结内容 */}
+        {summary && (
+          <>
+            {/* 问候语 */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-4"
+            >
+              <h2 className="text-2xl font-bold text-immortal-text">
+                {summary.greeting}
+              </h2>
+              <p className="text-immortal-secondary mt-1">
+                这里是{getGreetingTime()}的修炼总结
+              </p>
+            </motion.div>
+
+            {/* 修炼统计 */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="panel"
+            >
+              <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-immortal-primary" />
+                今日修炼
+              </h3>
+
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="stat-card text-center">
                   <Clock className="w-5 h-5 mx-auto mb-2 text-immortal-primary" />
                   <div className="text-xl font-bold text-immortal-text">
-                    {formatMinutes(summary.cultivationStats.todayMinutes)}
+                    {formatMinutes(summary.todayMinutes)}
                   </div>
                   <div className="text-xs text-immortal-secondary">修炼时长</div>
                 </div>
@@ -223,86 +295,151 @@ export const DailySummary: FC = () => {
                 <div className="stat-card text-center">
                   <Sparkles className="w-5 h-5 mx-auto mb-2 text-immortal-primary" />
                   <div className="text-xl font-bold text-immortal-text">
-                    +{summary.cultivationStats.expGained}
+                    +{summary.expGained}
                   </div>
                   <div className="text-xs text-immortal-secondary">获得经验</div>
                 </div>
                 
                 <div className="stat-card text-center">
-                  <Gem className="w-5 h-5 mx-auto mb-2 text-immortal-primary" />
+                  <Wind className="w-5 h-5 mx-auto mb-2 text-immortal-primary" />
                   <div className="text-xl font-bold text-immortal-text">
-                    +{summary.cultivationStats.spiritStones}
+                    x{summary.bonusApplied.toFixed(2)}
                   </div>
-                  <div className="text-xs text-immortal-secondary">灵石收入</div>
+                  <div className="text-xs text-immortal-secondary">天时加成</div>
                 </div>
               </div>
+            </motion.div>
 
-              {/* 境界进度 */}
-              <div className="bg-slate-800/30 rounded-xl p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <div className="flex items-center gap-2">
-                    <Wind className="w-4 h-4 text-immortal-primary" />
-                    <span className="text-sm text-immortal-secondary">境界进度</span>
+            {/* 修炼回顾 */}
+            {summary.cultivationReview && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="panel"
+              >
+                <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-immortal-primary" />
+                  修炼回顾
+                </h3>
+                <p className="text-immortal-text/90 leading-relaxed">
+                  {summary.cultivationReview}
+                </p>
+              </motion.div>
+            )}
+
+            {/* 修炼感悟 */}
+            {summary.insight && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="panel border-immortal-primary/30"
+              >
+                <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-immortal-primary" />
+                  修炼感悟
+                </h3>
+                <p className="text-immortal-text/90 leading-relaxed">
+                  {summary.insight}
+                </p>
+              </motion.div>
+            )}
+
+            {/* 金丹工程智慧 */}
+            {summary.wisdom && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="panel bg-gradient-to-br from-immortal-primary/5 to-transparent"
+              >
+                <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-immortal-primary" />
+                  金丹工程智慧
+                </h3>
+                <p className="text-immortal-text/90 leading-relaxed">
+                  {summary.wisdom}
+                </p>
+              </motion.div>
+            )}
+
+            {/* 明日建议 */}
+            {summary.suggestion && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="panel"
+              >
+                <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                  <Compass className="w-5 h-5 text-immortal-primary" />
+                  明日建议
+                </h3>
+                <p className="text-immortal-text/90 leading-relaxed">
+                  {summary.suggestion}
+                </p>
+              </motion.div>
+            )}
+
+            {/* 金句卡片 */}
+            <AnimatePresence>
+              {summary.goldenQuote && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ 
+                    opacity: 1, 
+                    scale: showGoldenQuote ? [1, 1.02, 1] : 1,
+                  }}
+                  transition={{ delay: 0.6 }}
+                  className="relative panel bg-gradient-to-br from-immortal-primary/10 via-immortal-secondary/5 to-immortal-primary/10 border-immortal-primary/30"
+                >
+                  <div className="absolute top-4 left-4">
+                    <Quote className="w-8 h-8 text-immortal-primary/30" />
                   </div>
-                  <span className="text-sm font-bold text-immortal-primary">
-                    {summary.realmProgress.currentRealm}
-                  </span>
-                </div>
-                
-                <div className="relative h-3 bg-slate-700 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${summary.realmProgress.progress}%` }}
-                    transition={{ duration: 1, delay: 0.3 }}
-                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-immortal-primary to-amber-400 rounded-full"
-                  />
-                </div>
-                
-                <div className="flex justify-between text-xs text-immortal-secondary mt-2">
-                  <span>{summary.realmProgress.currentExp} 经验</span>
-                  <span>{summary.realmProgress.progress.toFixed(1)}%</span>
-                  <span>{summary.realmProgress.nextRealmExp} 经验</span>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-8 text-immortal-secondary">
-              <p>暂无今日修炼数据</p>
-            </div>
-          )}
-        </motion.div>
+                  
+                  <div className="pt-8 pb-4 px-4 text-center">
+                    <p className="text-xl font-medium text-immortal-text leading-relaxed">
+                      「{summary.goldenQuote}」
+                    </p>
+                  </div>
+                  
+                  <div className="flex justify-center pb-2">
+                    <button
+                      onClick={handleShare}
+                      className="flex items-center gap-1 text-sm text-immortal-secondary hover:text-immortal-primary transition-colors"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      <span>分享金句</span>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* 再次生成按钮 */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7 }}
+              className="flex justify-center pt-4"
+            >
+              <button
+                onClick={generateSummary}
+                disabled={isGenerating}
+                className="text-sm text-immortal-secondary hover:text-immortal-primary transition-colors flex items-center gap-1"
+              >
+                <RefreshCw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
+                <span>{isGenerating ? '重新生成中...' : '重新生成总结'}</span>
+              </button>
+            </motion.div>
+          </>
+        )}
 
         {/* 今日箴言 */}
         <DailyWisdom 
           wisdom={wisdom} 
           isLoading={isLoading} 
-        />
-
-        {/* 修炼建议 */}
-        {summary?.suggestion && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="panel border-immortal-primary/30"
-          >
-            <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-immortal-primary" />
-              修炼建议
-            </h3>
-            <p className="text-immortal-text/90 leading-relaxed">
-              {summary.suggestion}
-            </p>
-          </motion.div>
-        )}
-
-        {/* 感悟输入 */}
-        <WisdomInsightComponent
-          wisdomId={wisdom?.id || ''}
-          insights={insights}
-          isLoading={isLoading}
-          onSubmit={handleSubmitInsight}
-          onDelete={handleDeleteInsight}
         />
 
         {/* 底部间距 */}

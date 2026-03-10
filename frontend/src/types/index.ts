@@ -148,7 +148,7 @@ export interface CelestialData {
   bonus: CultivationBonus
 }
 
-// ==================== 每日总结 ====================
+// ==================== 每日总结（AI生成） ====================
 export interface DailySummary {
   id: string
   userId: string
@@ -165,6 +165,26 @@ export interface DailySummary {
     goldenQuote: string
   }
   generatedAt: string
+}
+
+export interface AIDailySummary {
+  date: string
+  todayMinutes: number
+  expGained: number
+  bonusApplied: number
+  greeting: string
+  cultivationReview: string
+  insight: string
+  wisdom: string
+  suggestion: string
+  goldenQuote: string
+}
+
+export interface SummaryHistoryItem {
+  date: string
+  todayMinutes: number
+  expGained: number
+  goldenQuote: string
 }
 
 // ==================== 箴言系统 ====================
