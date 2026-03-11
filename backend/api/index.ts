@@ -731,6 +731,213 @@ app.get('/api/wisdom/history', authMiddleware, async (req: any, res: any) => {
   }
 });
 
+// ========== 补充前端需要的别名路由 ==========
+
+// /api/wisdom/daily-summary -> 映射到 /api/wisdom/today
+app.get('/api/wisdom/daily-summary', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.userId as string;
+    if (!userId) return res.status(401).json({ error: '未认证' });
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // 查找今日是否已有总结
+    const existingSummary = await prisma.dailySummary.findFirst({
+      where: { userId, date: { gte: today } },
+    });
+    
+    if (existingSummary) {
+      return res.json({ summary: existingSummary });
+    }
+    
+    // 返回空
+    res.json({ summary: null });
+  } catch (error: any) {
+    res.status(500).json({ error: '获取总结失败', details: error.message });
+  }
+});
+
+// /api/summary/* 路由
+app.get('/api/summary/today', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.userId as string;
+    if (!userId) return res.status(401).json({ error: '未认证' });
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const summary = await prisma.dailySummary.findFirst({
+      where: { userId, date: { gte: today } },
+    });
+    
+    if (summary) {
+      return res.json({ 
+        summary: {
+          date: summary.date.toISOString().split('T')[0],
+          todayMinutes: summary.todayMinutes,
+          expGained: summary.expGained,
+          bonusApplied: summary.bonusApplied,
+          greeting: summary.greeting,
+          cultivationReview: summary.cultivationReview,
+          insight: summary.insight,
+          wisdom: summary.wisdom,
+          suggestion: summary.suggestion,
+          goldenQuote: summary.goldenQuote,
+        },
+        isNew: false 
+      });
+    }
+    
+    res.json({ summary: null, isNew: false, message: '今日尚未修炼完成，暂无总结' });
+  } catch (error: any) {
+    res.status(500).json({ error: '获取失败', details: error.message });
+  }
+});
+
+app.post('/api/summary/generate', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.userId as string;
+    if (!userId) return res.status(401).json({ error: '未认证' });
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // 检查是否已存在
+    const existing = await prisma.dailySummary.findFirst({
+      where: { userId, date: { gte: today } },
+    });
+    
+    if (existing) {
+      return res.json({ 
+        summary: {
+          date: existing.date.toISOString().split('T')[0],
+          todayMinutes: existing.todayMinutes,
+          expGained: existing.expGained,
+          bonusApplied: existing.bonusApplied,
+          greeting: existing.greeting,
+          cultivationReview: existing.cultivationReview,
+          insight: existing.insight,
+          wisdom: existing.wisdom,
+          suggestion: existing.suggestion,
+          goldenQuote: existing.goldenQuote,
+        },
+        isNew: false 
+      });
+    }
+    
+    // 获取用户数据生成总结
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const cultivation = await prisma.cultivation.findUnique({ where: { userId } });
+    
+    if (!cultivation || cultivation.todayMinutes === 0) {
+      return res.status(400).json({ error: '今日无修炼记录，无法生成总结' });
+    }
+    
+    // 生成总结内容
+    const summaryData = {
+      greeting: `道友${user?.daoName}，${new Date().getHours() < 12 ? '早安' : new Date().getHours() < 18 ? '午安' : '晚安'}。`,
+      cultivationReview: `今日修炼${cultivation.todayMinutes}分钟，获得${cultivation.todayMinutes * 10}点经验。在你的坚持之下，灵气正在丹田中缓缓汇聚。`,
+      insight: `今日${cultivation.todayMinutes >= 30 ? '修炼勤勉' : '修炼时间较短'}，${cultivation.todayMinutes >= 30 ? '丹田之中已有灵气流转，假以时日必有所成。' : '建议明日增加修炼时长，稳固根基。'}`,
+      wisdom: '《金丹工程》认为：修炼的本质是建立人体局域负熵核心，通过与宇宙背景场的能量耦合，实现生命层次的跃迁。',
+      suggestion: cultivation.todayMinutes >= 30 
+        ? '明日建议：保持当前节奏，注意子时(23:00-1:00)为最佳修炼时辰。'
+        : '明日建议：尝试修炼至少30分钟，让灵气在经脉中充分流转。',
+      goldenQuote: '合抱之木，生于毫末；九层之台，起于累土。',
+    };
+    
+    const saved = await prisma.dailySummary.create({
+      data: {
+        userId,
+        date: new Date(),
+        todayMinutes: cultivation.todayMinutes,
+        expGained: cultivation.todayMinutes * 10,
+        bonusApplied: 1.0,
+        ...summaryData,
+      },
+    });
+    
+    res.json({
+      summary: {
+        date: saved.date.toISOString().split('T')[0],
+        todayMinutes: saved.todayMinutes,
+        expGained: saved.expGained,
+        bonusApplied: saved.bonusApplied,
+        greeting: saved.greeting,
+        cultivationReview: saved.cultivationReview,
+        insight: saved.insight,
+        wisdom: saved.wisdom,
+        suggestion: saved.suggestion,
+        goldenQuote: saved.goldenQuote,
+      },
+      isNew: true,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: '生成失败', details: error.message });
+  }
+});
+
+app.get('/api/summary/history', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.userId as string;
+    const limit = parseInt(req.query.limit as string) || 7;
+    
+    const summaries = await prisma.dailySummary.findMany({
+      where: { userId },
+      orderBy: { date: 'desc' },
+      take: limit,
+    });
+    
+    res.json({
+      summaries: summaries.map(s => ({
+        date: s.date.toISOString().split('T')[0],
+        todayMinutes: s.todayMinutes,
+        expGained: s.expGained,
+        goldenQuote: s.goldenQuote,
+      })),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: '获取失败', details: error.message });
+  }
+});
+
+app.get('/api/summary/:date', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.userId as string;
+    const dateStr = req.params.date;
+    const date = new Date(dateStr);
+    date.setHours(0, 0, 0, 0);
+    
+    const summary = await prisma.dailySummary.findFirst({
+      where: {
+        userId,
+        date: { gte: date, lt: new Date(date.getTime() + 24 * 60 * 60 * 1000) },
+      },
+    });
+    
+    if (!summary) {
+      return res.status(404).json({ error: '未找到该日总结' });
+    }
+    
+    res.json({
+      summary: {
+        date: summary.date.toISOString().split('T')[0],
+        todayMinutes: summary.todayMinutes,
+        expGained: summary.expGained,
+        bonusApplied: summary.bonusApplied,
+        greeting: summary.greeting,
+        cultivationReview: summary.cultivationReview,
+        insight: summary.insight,
+        wisdom: summary.wisdom,
+        suggestion: summary.suggestion,
+        goldenQuote: summary.goldenQuote,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: '获取失败', details: error.message });
+  }
+});
+
 // 错误处理
 app.use((err: any, req: any, res: any, next: any) => {
   console.error('Error:', err);
