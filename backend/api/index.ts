@@ -236,33 +236,15 @@ app.post('/api/bazi/calculate', (req, res) => {
     const result = calculateBazi(year, month, day, hour);
     
     // 转换为前端期望的格式
-    const formatted = `${result.yearPillar.stem}${result.yearPillar.branch} ${result.monthPillar.stem}${result.monthPillar.branch} ${result.dayPillar.stem}${result.dayPillar.branch} ${result.hourPillar.stem}${result.hourPillar.branch}`;
-    
     res.json({
-      success: true,
-      data: {
-        bazi: {
-          year: result.yearPillar,
-          month: result.monthPillar,
-          day: result.dayPillar,
-          hour: result.hourPillar
-        },
-        wuxing: {
-          metal: result.elementStats.金,
-          wood: result.elementStats.木,
-          water: result.elementStats.水,
-          fire: result.elementStats.火,
-          earth: result.elementStats.土
-        },
-        lingGen: {
-          type: result.spiritualRoot.type,
-          name: result.spiritualRoot.name,
-          primaryElement: result.spiritualRoot.primaryElement,
-          bonus: result.spiritualRoot.bonus,
-          description: result.spiritualRoot.description
-        },
-        formatted
-      }
+      bazi: {
+        yearPillar: result.yearPillar,
+        monthPillar: result.monthPillar,
+        dayPillar: result.dayPillar,
+        hourPillar: result.hourPillar
+      },
+      elementStats: result.elementStats,
+      spiritualRoot: result.spiritualRoot
     });
   } catch (error: any) {
     res.status(500).json({ error: '计算失败', details: error.message });
